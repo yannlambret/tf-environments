@@ -59,7 +59,7 @@ locals {
 # ───────────────────────────────────────
 
 module "network" {
-  source = "git::https://github.com/yannlambret/tf-modules.git//libvirt/network?ref=libvirt/network/v0.2.0"
+  source = "git::https://github.com/yannlambret/tf-modules.git//libvirt/network?ref=libvirt/network/v0.3.0"
 
   network = {
     name      = local.lab_name
@@ -71,7 +71,8 @@ module "network" {
 
   static_hosts = [
     for g in local.guests : {
-      ip       = g.ipv4_address
+      ipv4     = g.ipv4_address
+      ipv6     = g.ipv6_address
       hostname = g.hostname
     }
   ]
