@@ -19,6 +19,7 @@ locals {
       name          = "jumpbox"
       hostname      = "jumpbox"
       ipv4_address  = "192.168.100.10"
+      ipv6_address  = "fd00:1::a"
       vcpu          = 1
       memory        = 512
       disk_capacity = 10
@@ -27,6 +28,7 @@ locals {
       name          = "server"
       hostname      = "server"
       ipv4_address  = "192.168.100.11"
+      ipv6_address  = "fd00:1::b"
       vcpu          = 1
       memory        = 2048
       disk_capacity = 20
@@ -35,6 +37,7 @@ locals {
       name          = "node-0"
       hostname      = "node-0"
       ipv4_address  = "192.168.100.12"
+      ipv6_address  = "fd00:1::c"
       vcpu          = 1
       memory        = 2048
       disk_capacity = 20
@@ -43,6 +46,7 @@ locals {
       name          = "node-1"
       hostname      = "node-1"
       ipv4_address  = "192.168.100.13"
+      ipv6_address  = "fd00:1::d"
       vcpu          = 1
       memory        = 2048
       disk_capacity = 20
@@ -55,13 +59,14 @@ locals {
 # ───────────────────────────────────────
 
 module "network" {
-  source = "git::https://github.com/yannlambret/tf-modules.git//libvirt/network?ref=libvirt/network/v0.1.0"
+  source = "git::https://github.com/yannlambret/tf-modules.git//libvirt/network?ref=libvirt/network/v0.2.0"
 
   network = {
-    name   = local.lab_name
-    bridge = "k8slab"
-    cidr   = "192.168.100.0/24"
-    domain = "${local.lab_name}.local"
+    name      = local.lab_name
+    bridge    = "k8slab"
+    ipv4_cidr = "192.168.100.0/24"
+    ipv6_cidr = "fd00:1::/64"
+    domain    = "${local.lab_name}.local"
   }
 
   static_hosts = [
@@ -98,7 +103,7 @@ module "storage_pool" {
 # ───────────────────────────────────────
 
 module "cloudinit" {
-  source = "git::https://github.com/yannlambret/tf-modules.git//libvirt/cloudinit?ref=libvirt/cloudinit/v0.1.0"
+  source = "git::https://github.com/yannlambret/tf-modules.git//libvirt/cloudinit?ref=libvirt/cloudinit/v0.2.0"
 
   for_each = { for item in local.guests : item.name => item }
 
@@ -106,8 +111,11 @@ module "cloudinit" {
     name                 = each.value.name
     hostname             = each.value.hostname
     ipv4_address         = each.value.ipv4_address
+    ipv6_address         = each.value.ipv6_address
     gateway_ipv4_address = module.network.gateway_ipv4_address
-    network_cidr         = module.network.cidr
+    gateway_ipv6_address = module.network.gateway_ipv6_address
+    ipv4_network_cidr    = module.network.ipv4_cidr
+    ipv6_network_cidr    = module.network.ipv6_cidr
     domain               = module.network.domain
     pool                 = module.storage_pool.name
     user                 = local.user
