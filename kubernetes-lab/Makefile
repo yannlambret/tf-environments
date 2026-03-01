@@ -10,9 +10,9 @@ TERRAFORM_DIR     := terraform
 TF                := terraform -chdir=$(TERRAFORM_DIR)
 SSH_CONFIG        := $(HOME)/.ssh/config
 SSH_CONFIG_DIR    := $(HOME)/.ssh/config.d
-LAB_SSH_CONFIG    := $(SSH_CONFIG_DIR)/k8s-lab
+LAB_SSH_CONFIG    := $(SSH_CONFIG_DIR)/kubernetes-lab
 LAB_USER          := debian
-DISPATCHER_SCRIPT := /etc/NetworkManager/dispatcher.d/99-k8s-lab
+DISPATCHER_SCRIPT := /etc/NetworkManager/dispatcher.d/99-kubernetes-lab
 
 .PHONY: help init apply destroy configure-dns configure-ssh start-domains stop-domains
 

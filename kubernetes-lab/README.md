@@ -43,7 +43,7 @@ after every reboot, without any manual intervention.
 make configure-ssh
 ```
 
-Generates `~/.ssh/config.d/k8s-lab` with a `Host` entry for each VM, populated with
+Generates `~/.ssh/config.d/kubernetes-lab` with a `Host` entry for each VM, populated with
 the IP addresses from Terraform outputs. Also ensures `~/.ssh/config` contains an
 `Include config.d/*` directive so the entries are picked up automatically by SSH.
 

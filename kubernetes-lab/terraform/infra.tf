@@ -3,7 +3,8 @@
 # ───────────────────────────────────────
 
 locals {
-  lab_name        = "k8s-lab"
+  lab_name        = "kubernetes-lab"
+  domain_name     = "kubernetes.local"
   base_image_name = "debian-12-base.qcow2"
   user            = "debian"
   ssh_public_key  = file("~/.ssh/id_ed25519.pub")
@@ -63,10 +64,10 @@ module "network" {
 
   network = {
     name      = local.lab_name
-    bridge    = "k8slab"
+    bridge    = local.lab_name
     ipv4_cidr = "192.168.100.0/24"
     ipv6_cidr = "fd00:1::/64"
-    domain    = "${local.lab_name}.local"
+    domain    = "${local.domain_name}"
   }
 
   static_hosts = [
