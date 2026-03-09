@@ -59,7 +59,8 @@ locals {
       - apt-get install -y containerd.io
       - containerd config default > /etc/containerd/config.toml
       - sed -i 's/SystemdCgroup = false/SystemdCgroup = true/' /etc/containerd/config.toml
-      - systemctl enable --now containerd
+      - systemctl enable containerd
+      - systemctl restart containerd
 
       # ── kubeadm, kubelet, kubectl ────────────────────────────────────────────
       - >-
@@ -103,7 +104,7 @@ locals {
       hostname        = "control-plane-01"
       ipv4_address    = "192.168.101.11"
       ipv6_address    = "fd00:2::b"
-      vcpu            = 1
+      vcpu            = 2
       memory          = 2048
       disk_capacity   = 20
       extra_user_data = local.k8s_node_extra_user_data
@@ -113,7 +114,7 @@ locals {
       hostname        = "control-plane-02"
       ipv4_address    = "192.168.101.12"
       ipv6_address    = "fd00:2::c"
-      vcpu            = 1
+      vcpu            = 2
       memory          = 2048
       disk_capacity   = 20
       extra_user_data = local.k8s_node_extra_user_data
@@ -123,7 +124,7 @@ locals {
       hostname        = "control-plane-03"
       ipv4_address    = "192.168.101.13"
       ipv6_address    = "fd00:2::d"
-      vcpu            = 1
+      vcpu            = 2
       memory          = 2048
       disk_capacity   = 20
       extra_user_data = local.k8s_node_extra_user_data

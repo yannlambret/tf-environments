@@ -6,13 +6,10 @@ MAKEFLAGS += --no-print-directory
 
 SHELL := /usr/bin/env bash
 
-TERRAFORM_DIR     := terraform
-TF                := terraform -chdir=$(TERRAFORM_DIR)
-SSH_CONFIG        := $(HOME)/.ssh/config
-SSH_CONFIG_DIR    := $(HOME)/.ssh/config.d
-LAB_SSH_CONFIG    := $(SSH_CONFIG_DIR)/k8s-lab
-LAB_USER          := ubuntu
-DISPATCHER_SCRIPT := /etc/NetworkManager/dispatcher.d/99-k8s-lab
+TERRAFORM_DIR := terraform
+TF            := terraform -chdir=$(TERRAFORM_DIR)
+SCRIPTS_DIR   := scripts
+KUBECONFIG    := $(HOME)/.kube/config-k8s-lab
 
 HOSTS := \
     control-plane-lb \
@@ -23,17 +20,24 @@ HOSTS := \
     worker-02 \
     worker-03
 
-.PHONY: help init apply destroy configure-dns configure-ssh start-domains stop-domains
+.PHONY: help init apply destroy configure-dns configure-ssh start-domains stop-domains \
+        setup-lb init-cluster join-control-planes join-workers install-cilium bootstrap
 
 help:
 	@echo "Available commands:"
-	@echo "  make init             Initialize Terraform"
-	@echo "  make apply            Apply infrastructure"
-	@echo "  make destroy          Destroy infrastructure"
-	@echo "  make configure-dns    Install DNS dispatcher script and configure lab DNS"
-	@echo "  make configure-ssh    Generate SSH config for lab hosts"
-	@echo "  make start-domains    Start all lab VMs"
-	@echo "  make stop-domains     Stop all lab VMs"
+	@echo "  make init                 Initialize Terraform"
+	@echo "  make apply                Apply infrastructure"
+	@echo "  make destroy              Destroy infrastructure"
+	@echo "  make configure-dns        Install DNS dispatcher script and configure lab DNS"
+	@echo "  make configure-ssh        Generate SSH config for lab hosts"
+	@echo "  make start-domains        Start all lab VMs"
+	@echo "  make stop-domains         Stop all lab VMs"
+	@echo "  make setup-lb             Deploy HAProxy on control-plane-lb"
+	@echo "  make init-cluster         Bootstrap first control plane with kubeadm"
+	@echo "  make join-control-planes  Join control-plane-02 and 03 to the cluster"
+	@echo "  make join-workers         Join worker nodes to the cluster"
+	@echo "  make install-cilium       Install Cilium via Helm"
+	@echo "  make bootstrap            Run all cluster setup steps in sequence"
 
 define run_silent
 	@echo -n "$(1)... "
@@ -65,64 +69,13 @@ destroy:
 # DNS setup via NetworkManager dispatcher
 # ───────────────────────────────────────
 configure-dns:
-	@sudo -n true 2>/dev/null || { echo "Authenticating with sudo for DNS setup..." && sudo -v; }
-	@echo -n "Getting output values from Terraform... "; \
-	BRIDGE=$$($(TF) output -raw network_bridge); \
-	DOMAIN=$$($(TF) output -raw network_domain); \
-	DNS_IP=$$($(TF) output -raw network_gateway_ipv4_address); \
-	echo "✅"; \
-	echo "  • BRIDGE=$$BRIDGE"; \
-	echo "  • DNS_IP=$$DNS_IP"; \
-	echo "  • DOMAIN=$$DOMAIN"; \
-	echo -n "Installing DNS dispatcher script to $(DISPATCHER_SCRIPT)... "; \
-	{ \
-	    echo "#!/usr/bin/env bash"; \
-	    echo "set -euo pipefail"; \
-	    echo ""; \
-	    echo "IFACE=\"\$$1\""; \
-	    echo "ACTION=\"\$$2\""; \
-	    echo ""; \
-	    echo "BRIDGE=\"$$BRIDGE\""; \
-	    echo "DNS_IP=\"$$DNS_IP\""; \
-	    echo "DOMAIN=\"$$DOMAIN\""; \
-	    echo ""; \
-	    echo "if [[ \"\$$IFACE\" == \"\$$BRIDGE\" && \"\$$ACTION\" == \"up\" ]]; then"; \
-	    echo "    resolvectl dns \"\$$BRIDGE\" \"\$$DNS_IP\""; \
-	    echo "    resolvectl domain \"\$$BRIDGE\" \"~\$$DOMAIN\""; \
-	    echo "fi"; \
-	} | sudo install -m 755 /dev/stdin $(DISPATCHER_SCRIPT); \
-	echo "✅"; \
-	echo -n "Configuring lab DNS for $$BRIDGE... "; \
-	sudo $(DISPATCHER_SCRIPT) "$$BRIDGE" up; \
-	echo "✅"
+	@bash $(SCRIPTS_DIR)/01-configure-dns.sh
 
 # ───────────────────────────────────────
 # SSH config
 # ───────────────────────────────────────
 configure-ssh:
-	@mkdir -p $(SSH_CONFIG_DIR)
-	@touch $(SSH_CONFIG)
-	@echo -n "Checking SSH Include directive... "; \
-	if ! grep -qE '^[[:space:]]*Include[[:space:]]+config\.d/\*' $(SSH_CONFIG); then \
-		CONTENT=$$(cat $(SSH_CONFIG)); \
-		{ echo "Include config.d/*"; [ -n "$$CONTENT" ] && printf "\n%s" "$$CONTENT"; } > $(SSH_CONFIG); \
-		echo "✅ (added)"; \
-	else \
-		echo "✅ (already present)"; \
-	fi
-	@echo -n "Writing SSH config to $(LAB_SSH_CONFIG)... "; \
-	{ \
-	    for host in $(HOSTS); \
-	    do \
-            echo "Host $$host"; \
-            echo "  HostName $$($(TF) output -raw "$${host//-/_}_ipv4_address")"; \
-            echo "  User $(LAB_USER)"; \
-            echo "  StrictHostKeyChecking no"; \
-            echo "  UserKnownHostsFile /dev/null"; \
-            echo ""; \
-	    done \
-	} > $(LAB_SSH_CONFIG); \
-	echo "✅"
+	@bash $(SCRIPTS_DIR)/02-configure-ssh.sh
 
 # ───────────────────────────────────────
 # Start the domains
@@ -145,3 +98,27 @@ stop-domains:
 	        && { echo "✅"; rm -f /tmp/make_task.log; } \
 	        || { echo "❌"; cat /tmp/make_task.log; rm -f /tmp/make_task.log; exit 1; }; \
 	done
+
+# ───────────────────────────────────────
+# Cluster bootstrap
+# ───────────────────────────────────────
+setup-lb:
+	$(call run_silent,Deploying HAProxy on control-plane-lb,bash $(SCRIPTS_DIR)/03-setup-lb.sh)
+
+init-cluster:
+	$(call run_silent,Initializing control plane (this takes a minute),bash $(SCRIPTS_DIR)/04-init-control-plane.sh)
+
+join-control-planes:
+	$(call run_silent,Joining control plane nodes,bash $(SCRIPTS_DIR)/05-join-control-planes.sh)
+
+join-workers:
+	$(call run_silent,Joining worker nodes,bash $(SCRIPTS_DIR)/06-join-workers.sh)
+
+install-cilium:
+	$(call run_silent,Installing Cilium via Helm,KUBECONFIG=$(KUBECONFIG) bash $(SCRIPTS_DIR)/07-install-cilium.sh)
+
+bootstrap: setup-lb init-cluster join-control-planes join-workers install-cilium
+	@echo ""
+	@echo "Cluster is ready. Run:"
+	@echo "  export KUBECONFIG=$(KUBECONFIG)"
+	@echo "  kubectl get nodes"
