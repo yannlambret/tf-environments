@@ -17,7 +17,6 @@ ssh "${CP1}" "cat | sudo tee /tmp/kubeadm-config.yaml > /dev/null" \
 echo "Running kubeadm init (this takes a minute)..."
 ssh "${CP1}" "sudo -i kubeadm init \
     --config /tmp/kubeadm-config.yaml \
-    --upload-certs \
     2>&1 | tee /tmp/kubeadm-init.log"
 
 echo -n "Setting up kubeconfig for ${LAB_USER} on ${CP1}... "

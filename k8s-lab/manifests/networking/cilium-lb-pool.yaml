@@ -1,0 +1,7 @@
+apiVersion: cilium.io/v2
+kind: CiliumLoadBalancerIPPool
+metadata:
+  name: k8s-lab
+spec:
+  blocks:
+    - cidr: "${CILIUM_LB_POOL_CIDR}"

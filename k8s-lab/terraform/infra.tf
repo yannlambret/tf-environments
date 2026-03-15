@@ -9,6 +9,17 @@ locals {
   ipv4_network_cidr = "192.168.101.0/24"
   ipv6_network_cidr = "fd00:2::/64"
 
+  # Kubernetes versions — must stay in sync with kubernetesVersion in config/kubeadm-config.yaml.
+  # Minor version selects the apt repository; patch version pins the installed packages.
+  k8s_minor_version = "v1.34"
+  k8s_patch_version = "1.34.5"
+
+  # Cilium LB-IPAM pool and system gateway IP.
+  # These values are the single source of truth shared with the Kubernetes
+  # manifest layer via config/lab.env (rendered by the local_file resource below).
+  cilium_lb_pool_cidr = "192.168.101.128/25"
+  cilium_gateway_ip   = "192.168.101.128"
+
   base_image = {
     name   = "ubuntu-22.04-base.qcow2"
     source = "https://cloud-images.ubuntu.com/releases/22.04/release/ubuntu-22.04-server-cloudimg-amd64-disk-kvm.img"
@@ -64,14 +75,14 @@ locals {
 
       # ── kubeadm, kubelet, kubectl ────────────────────────────────────────────
       - >-
-        curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.32/deb/Release.key
+        curl -fsSL https://pkgs.k8s.io/core:/stable:/${local.k8s_minor_version}/deb/Release.key
         | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
       - >-
         echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg]
-        https://pkgs.k8s.io/core:/stable:/v1.32/deb/ /"
+        https://pkgs.k8s.io/core:/stable:/${local.k8s_minor_version}/deb/ /"
         > /etc/apt/sources.list.d/kubernetes.list
       - apt-get update -qq
-      - apt-get install -y kubelet kubeadm kubectl
+      - apt-get install -y kubelet=${local.k8s_patch_version}-* kubeadm=${local.k8s_patch_version}-* kubectl=${local.k8s_patch_version}-*
       - apt-mark hold kubelet kubeadm kubectl
       - systemctl enable kubelet
     EOT
@@ -163,6 +174,25 @@ locals {
 }
 
 # ───────────────────────────────────────
+# Cluster service DNS entries
+# ───────────────────────────────────────
+
+locals {
+  # Static DNS entries for cluster services exposed via Cilium LB-IPAM.
+  # These must match the lb.lbipam.cilium.io/ips annotation on the corresponding Gateway/Service.
+  service_hosts = [
+    {
+      ipv4     = local.cilium_gateway_ip
+      hostname = "grafana"
+    },
+    {
+      ipv4     = local.cilium_gateway_ip
+      hostname = "prometheus"
+    },
+  ]
+}
+
+# ───────────────────────────────────────
 # Network
 # ───────────────────────────────────────
 
@@ -177,13 +207,16 @@ module "network" {
     domain    = local.domain_name
   }
 
-  static_hosts = [
-    for g in local.guests : {
-      ipv4     = g.ipv4_address
-      ipv6     = g.ipv6_address
-      hostname = g.hostname
-    }
-  ]
+  static_hosts = concat(
+    [
+      for g in local.guests : {
+        ipv4     = g.ipv4_address
+        ipv6     = g.ipv6_address
+        hostname = g.hostname
+      }
+    ],
+    local.service_hosts
+  )
 }
 
 # ───────────────────────────────────────
@@ -249,4 +282,17 @@ module "vm" {
     base_image          = module.storage_pool.base_images[local.base_image.name]
     cloudinit_path      = module.cloudinit[each.key].volume_path
   }
+}
+
+# ───────────────────────────────────────
+# Manifest values file
+# ───────────────────────────────────────
+
+resource "local_file" "lab_env" {
+  filename        = "${path.module}/../config/lab.env"
+  file_permission = "0644"
+  content         = <<-EOT
+    CILIUM_GATEWAY_IP=${local.cilium_gateway_ip}
+    CILIUM_LB_POOL_CIDR=${local.cilium_lb_pool_cidr}
+  EOT
 }

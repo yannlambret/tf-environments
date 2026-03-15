@@ -1,0 +1,16 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: k8s-lab
+  namespace: gateway-system
+  annotations:
+    lb.lbipam.cilium.io/ips: "${CILIUM_GATEWAY_IP}"
+spec:
+  gatewayClassName: cilium
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+      allowedRoutes:
+        namespaces:
+          from: All

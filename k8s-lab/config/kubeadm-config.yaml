@@ -1,10 +1,23 @@
 apiVersion: kubeadm.k8s.io/v1beta4
 kind: ClusterConfiguration
-kubernetesVersion: v1.32.0
+kubernetesVersion: v1.34.5
 controlPlaneEndpoint: "control-plane-lb.k8s.local:6443"
 networking:
   podSubnet: "10.244.0.0/16"
   serviceSubnet: "10.96.0.0/12"
+controllerManager:
+  extraArgs:
+    - name: bind-address
+      value: "0.0.0.0"
+scheduler:
+  extraArgs:
+    - name: bind-address
+      value: "0.0.0.0"
+etcd:
+  local:
+    extraArgs:
+      - name: listen-metrics-urls
+        value: "http://0.0.0.0:2381"
 ---
 apiVersion: kubeadm.k8s.io/v1beta4
 kind: InitConfiguration

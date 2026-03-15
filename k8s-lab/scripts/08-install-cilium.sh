@@ -6,12 +6,19 @@ set -euo pipefail
 
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 
+GATEWAY_API_VERSION="${GATEWAY_API_VERSION:-1.4.1}"
+GATEWAY_API_CRDS_URL="https://github.com/kubernetes-sigs/gateway-api/releases/download/v${GATEWAY_API_VERSION}/experimental-install.yaml"
+
 for cmd in kubectl helm; do
     if ! command -v "${cmd}" &>/dev/null; then
         echo "Error: ${cmd} is not installed or not in PATH" >&2
         exit 1
     fi
 done
+
+echo -n "Installing Gateway API CRDs (v${GATEWAY_API_VERSION})... "
+kubectl --kubeconfig "${KUBECONFIG}" apply --server-side -f "${GATEWAY_API_CRDS_URL}" &>/dev/null \
+    && echo "done"
 
 echo -n "Adding Cilium Helm repository... "
 helm repo add cilium https://helm.cilium.io/ --force-update &>/dev/null \

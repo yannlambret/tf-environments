@@ -8,3 +8,36 @@ k8sServicePort: 6443
 # Use Kubernetes node CIDR allocation (matches kubeadm podSubnet)
 ipam:
   mode: kubernetes
+
+l2announcements:
+  enabled: true
+
+externalIPs:
+  enabled: true
+
+gatewayAPI:
+  enabled: true
+
+hubble:
+  enabled: true
+
+  relay:
+    enabled: true
+
+  ui:
+    enabled: true
+
+  metrics:
+    enabled:
+      - dns
+      - drop
+      - tcp
+      - flow
+      - port-distribution
+      - icmp
+      - httpV2:exemplars=true;labelsContext=source_ip,source_namespace,destination_ip,destination_namespace
+
+    serviceMonitor:
+      enabled: true
+      labels:
+        release: kube-prometheus-stack

@@ -37,7 +37,7 @@ HAPROXY_CFG_REMOTE="/usr/local/etc/haproxy/haproxy.cfg"
 
 # ── Cilium ────────────────────────────────────────────────────────────────────
 
-CILIUM_VERSION="${CILIUM_VERSION:-1.17.2}"
+CILIUM_VERSION="${CILIUM_VERSION:-1.19.1}"
 CILIUM_HELM_RELEASE="cilium"
 CILIUM_HELM_NAMESPACE="kube-system"
 

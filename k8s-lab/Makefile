@@ -21,23 +21,27 @@ HOSTS := \
     worker-03
 
 .PHONY: help init apply destroy configure-dns configure-ssh start-domains stop-domains \
-        setup-lb init-cluster join-control-planes join-workers install-cilium bootstrap
+        setup-lb init-cluster join-control-planes join-workers install-prometheus-crds install-cilium install-prometheus-stack bootstrap \
+        apply-manifests
 
 help:
 	@echo "Available commands:"
-	@echo "  make init                 Initialize Terraform"
-	@echo "  make apply                Apply infrastructure"
-	@echo "  make destroy              Destroy infrastructure"
-	@echo "  make configure-dns        Install DNS dispatcher script and configure lab DNS"
-	@echo "  make configure-ssh        Generate SSH config for lab hosts"
-	@echo "  make start-domains        Start all lab VMs"
-	@echo "  make stop-domains         Stop all lab VMs"
-	@echo "  make setup-lb             Deploy HAProxy on control-plane-lb"
-	@echo "  make init-cluster         Bootstrap first control plane with kubeadm"
-	@echo "  make join-control-planes  Join control-plane-02 and 03 to the cluster"
-	@echo "  make join-workers         Join worker nodes to the cluster"
-	@echo "  make install-cilium       Install Cilium via Helm"
-	@echo "  make bootstrap            Run all cluster setup steps in sequence"
+	@echo "  make init                      Initialize Terraform"
+	@echo "  make apply                     Apply infrastructure"
+	@echo "  make destroy                   Destroy infrastructure"
+	@echo "  make configure-dns             Install DNS dispatcher script and configure lab DNS"
+	@echo "  make configure-ssh             Generate SSH config for lab hosts"
+	@echo "  make start-domains             Start all lab VMs"
+	@echo "  make stop-domains              Stop all lab VMs"
+	@echo "  make setup-lb                  Deploy HAProxy on control-plane-lb"
+	@echo "  make init-cluster              Bootstrap first control plane with kubeadm"
+	@echo "  make join-control-planes       Join control-plane-02 and 03 to the cluster"
+	@echo "  make join-workers              Join worker nodes to the cluster"
+	@echo "  make install-prometheus-crds   Install Prometheus Operator CRDs via Helm"
+	@echo "  make install-cilium            Install Cilium via Helm"
+	@echo "  make install-prometheus-stack  Install kube-prometheus-stack via Helm"
+	@echo "  make bootstrap                 Run all cluster setup steps in sequence"
+	@echo "  make apply-manifests           Render and apply Kubernetes manifests"
 
 define run_silent
 	@echo -n "$(1)... "
@@ -114,10 +118,22 @@ join-control-planes:
 join-workers:
 	$(call run_silent,Joining worker nodes,bash $(SCRIPTS_DIR)/06-join-workers.sh)
 
-install-cilium:
-	$(call run_silent,Installing Cilium via Helm,KUBECONFIG=$(KUBECONFIG) bash $(SCRIPTS_DIR)/07-install-cilium.sh)
+install-prometheus-crds:
+	$(call run_silent,Installing Prometheus Operator CRDs via Helm,KUBECONFIG=$(KUBECONFIG) bash $(SCRIPTS_DIR)/07-install-prometheus-crds.sh)
 
-bootstrap: setup-lb init-cluster join-control-planes join-workers install-cilium
+install-cilium:
+	$(call run_silent,Installing Cilium via Helm,KUBECONFIG=$(KUBECONFIG) bash $(SCRIPTS_DIR)/08-install-cilium.sh)
+
+install-prometheus-stack:
+	$(call run_silent,Installing kube-prometheus-stack via Helm,KUBECONFIG=$(KUBECONFIG) bash $(SCRIPTS_DIR)/09-install-prometheus-stack.sh)
+
+# ───────────────────────────────────────
+# Kubernetes manifests
+# ───────────────────────────────────────
+apply-manifests:
+	$(call run_silent,Applying Kubernetes manifests,KUBECONFIG=$(KUBECONFIG) bash $(SCRIPTS_DIR)/10-apply-manifests.sh)
+
+bootstrap: setup-lb init-cluster join-control-planes join-workers install-prometheus-crds install-cilium install-prometheus-stack
 	@echo ""
 	@echo "Cluster is ready. Run:"
 	@echo "  export KUBECONFIG=$(KUBECONFIG)"

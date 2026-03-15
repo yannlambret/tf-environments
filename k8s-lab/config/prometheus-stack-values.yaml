@@ -1,0 +1,22 @@
+grafana:
+  grafana.ini:
+    server:
+      domain: grafana.k8s.local
+      root_url: http://grafana.k8s.local
+
+  sidecar:
+    dashboards:
+      searchNamespace: ALL
+
+prometheus:
+  prometheusSpec:
+    # Discover ServiceMonitors and PodMonitors across all namespaces.
+    # External monitors (e.g. Cilium's in kube-system) opt in by carrying
+    # the release: kube-prometheus-stack label on their ServiceMonitor.
+    serviceMonitorNamespaceSelector: {}
+    podMonitorNamespaceSelector: {}
+
+# etcd metrics are served over plain HTTP on port 2381.
+kubeEtcd:
+  serviceMonitor:
+    scheme: http
